@@ -1,6 +1,7 @@
 import qualified Data.ByteString.Lazy as BL
 import Data.Csv
 import qualified Data.Vector as V
+import qualified Data.List as L
 
 data Coord = Coord { lat :: !Float , lon :: !Float } deriving (Show)
 
@@ -18,20 +19,14 @@ distance p p2 =
         (cos(radlat p)*cos(radlat p2)*
           cos((radlon p)-(radlon p2)))) * 6371.01
 
-processRow :: (V.Vector String) -> Coord -> Float -> [V.Vector String] -> IO Float
-processRow _ _ x [] = return x
-processRow hdr home largest (x:xs) =
-  let coords = toCoordS $ x V.! 11
-      d = distance home coords
-      m = max largest d in
-    do
-      putStrLn $ show x
-      putStrLn $ show home ++ " -> " ++ show coords ++ " = " ++ show d
-      processRow hdr home m xs
 
-
+process :: (V.Vector String) -> [V.Vector String] -> [V.Vector String]
 process hdr vals =
-  processRow hdr (toCoordS $ head vals V.! 11) 0 vals
+  let home = (toCoordS $ (head vals) V.! 11) in
+    (V.snoc hdr "distance") : L.map (\b ->
+                                       let c = toCoordS $ b V.! 11
+                                           d = distance home c in
+                                         V.snoc b (show d)) vals
 
 main :: IO ()
 main = do
@@ -39,6 +34,4 @@ main = do
     case decode NoHeader csvData :: Either String (V.Vector (V.Vector String)) of
         Left err -> putStrLn err
         Right v ->
-          do
-            md <- process (V.head v) $ take 100 $ V.toList $ V.tail v
-            putStrLn $ show md
+            BL.putStr $ encode $ process (V.head v) $ V.toList $ V.tail v
