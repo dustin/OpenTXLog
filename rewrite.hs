@@ -1,11 +1,11 @@
-import qualified Data.ByteString.Lazy as BL
 import Data.Csv
-import qualified Data.Vector as V
-import qualified Data.List as L
+import Geodetics.Geodetic
 import Numeric.Units.Dimensional
 import Numeric.Units.Dimensional.SIUnits
 import System.Environment
-import Geodetics.Geodetic
+import qualified Data.ByteString.Lazy as BL
+import qualified Data.List as L
+import qualified Data.Vector as V
 
 distance (Just a) (Just b) = case groundDistance a b of
                                Nothing -> _0
