@@ -2,25 +2,18 @@ import qualified Data.ByteString.Lazy as BL
 import Data.Csv
 import qualified Data.Vector as V
 import qualified Data.List as L
-import Numeric
+import Numeric.Units.Dimensional
+import Numeric.Units.Dimensional.SIUnits
 import System.Environment
+import Geodetics.Geodetic
 
-data Coord = Coord { lat :: !Double , lon :: !Double } deriving (Show)
+toCoordS s = case readGroundPosition WGS84 s of
+               Just x -> x
+               Nothing -> error s
 
-toCoord [lat, lon] = Coord lat lon
-
-toCoordS s = toCoord $ map (\x -> read x :: Double) $ words s
-
-d2r a = a * 0.0174532925
-
-radlat (Coord l _) = d2r l
-radlon (Coord _ l) = d2r l
-
-distance p p2 =
-  acos((sin(radlat p)*sin(radlat p2))+
-        (cos(radlat p)*cos(radlat p2)*
-          cos((radlon p)-(radlon p2)))) * 6371.01
-
+distance a b = case groundDistance a b of
+                 Nothing -> _0
+                 Just (d, _, _) -> if (isNaN (d /~ meter)) then _0 else d
 
 process :: (V.Vector String) -> [V.Vector String] -> [V.Vector String]
 process hdr vals =
@@ -28,7 +21,7 @@ process hdr vals =
     (V.snoc hdr "distance") : L.map (\b ->
                                        let c = toCoordS $ b V.! 11
                                            d = distance home c in
-                                         V.snoc b (Numeric.showFFloat (Just 3) d "")) vals
+                                         V.snoc b (show (d /~ meter))) vals
 
 main :: IO ()
 main = do
