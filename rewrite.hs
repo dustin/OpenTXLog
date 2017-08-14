@@ -3,6 +3,7 @@ import Data.Csv
 import qualified Data.Vector as V
 import qualified Data.List as L
 import Numeric
+import System.Environment
 
 data Coord = Coord { lat :: !Double , lon :: !Double } deriving (Show)
 
@@ -31,7 +32,8 @@ process hdr vals =
 
 main :: IO ()
 main = do
-    csvData <- BL.readFile "test.csv"
+    file <- fmap head getArgs
+    csvData <- BL.readFile file
     case decode NoHeader csvData :: Either String (V.Vector (V.Vector String)) of
         Left err -> putStrLn err
         Right v ->
