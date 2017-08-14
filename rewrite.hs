@@ -2,12 +2,13 @@ import qualified Data.ByteString.Lazy as BL
 import Data.Csv
 import qualified Data.Vector as V
 import qualified Data.List as L
+import Numeric
 
-data Coord = Coord { lat :: !Float , lon :: !Float } deriving (Show)
+data Coord = Coord { lat :: !Double , lon :: !Double } deriving (Show)
 
 toCoord [lat, lon] = Coord lat lon
 
-toCoordS s = toCoord $ map (\x -> read x :: Float) $ words s
+toCoordS s = toCoord $ map (\x -> read x :: Double) $ words s
 
 d2r a = a * 0.0174532925
 
@@ -26,7 +27,7 @@ process hdr vals =
     (V.snoc hdr "distance") : L.map (\b ->
                                        let c = toCoordS $ b V.! 11
                                            d = distance home c in
-                                         V.snoc b (show d)) vals
+                                         V.snoc b (Numeric.showFFloat (Just 3) d "")) vals
 
 main :: IO ()
 main = do
