@@ -7,19 +7,15 @@ import Numeric.Units.Dimensional.SIUnits
 import System.Environment
 import Geodetics.Geodetic
 
-toCoordS s = case readGroundPosition WGS84 s of
-               Just x -> x
-               Nothing -> error s
-
-distance a b = case groundDistance a b of
-                 Nothing -> _0
-                 Just (d, _, _) -> if (isNaN (d /~ meter)) then _0 else d
+distance (Just a) (Just b) = case groundDistance a b of
+                               Nothing -> _0
+                               Just (d, _, _) -> if (isNaN (d /~ meter)) then _0 else d
 
 process :: (V.Vector String) -> [V.Vector String] -> [V.Vector String]
 process hdr vals =
-  let home = (toCoordS $ (head vals) V.! 11) in
+  let home = (readGroundPosition WGS84 $ (head vals) V.! 11) in
     (V.snoc hdr "distance") : L.map (\b ->
-                                       let c = toCoordS $ b V.! 11
+                                       let c = readGroundPosition WGS84 $ b V.! 11
                                            d = distance home c in
                                          V.snoc b (show (d /~ meter))) vals
 
