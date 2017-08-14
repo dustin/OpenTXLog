@@ -1,3 +1,6 @@
+#!/usr/bin/env stack
+-- stack --system-ghc runghc --package cassava --package geodetics
+
 import Data.Csv
 import Geodetics.Geodetic
 import Numeric.Units.Dimensional
