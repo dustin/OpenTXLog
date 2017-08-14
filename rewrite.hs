@@ -1,12 +1,6 @@
-{-# LANGUAGE DeriveGeneric #-}
-
-import Control.Applicative
 import qualified Data.ByteString.Lazy as BL
-import Data.ByteString (ByteString)
 import Data.Csv
 import qualified Data.Vector as V
-import System.Environment
-import GHC.Generics (Generic)
 
 data Coord = Coord { lat :: !Float , lon :: !Float } deriving (Show)
 
