@@ -23,7 +23,7 @@ parseTS ds ts tz =
       lt = (LocalTime <$> parseTimeM True l "%F" ds <*> parseTimeM True l "%H:%M:%S%Q" ts) in
     localTimeToUTC tz (lt())
 
-diffTime t1 t2 = abs (realToFrac $ diffUTCTime t1 t2) D.*~ second
+diffTime t1 t2 = (realToFrac $ diffUTCTime t1 t2) D.*~ second
 
 kph = (kilo meter D./ hour)
 
@@ -36,21 +36,36 @@ byName field hdr = case V.elemIndex field hdr of
                      Nothing -> (\_ -> "")
                      Just n -> (\r -> r V.! n)
 
+minDur = 4
+
+-- Trailing edge for computing speed
+prune :: TimeZone -> (V.Vector String) -> [V.Vector String] -> (V.Vector String) -> UTCTime -> [V.Vector String]
+prune tz hdr vals current now
+  | pos == (pf $ head vals) = vals
+  | otherwise =
+      let dt r = diffUTCTime now (parseTS (df r) (tf r) tz) in
+        L.dropWhile (\r -> dt r > minDur) vals
+  where pf = byName "GPS" hdr
+        df = byName "Date" hdr
+        tf = byName "Time" hdr
+        pos = (pf current)
+
 process :: TimeZone -> (V.Vector String) -> [V.Vector String] -> [V.Vector String]
 process tz hdr vals =
   let pf = byName "GPS" hdr
       df = byName "Date" hdr
       tf = byName "Time" hdr
-      first = head vals
-      home = (readGroundPosition WGS84 $ pf first)
-      (_, vals') = L.mapAccumL (\a b -> let c = readGroundPosition WGS84 $ pf b
+      home = (readGroundPosition WGS84 $ pf $ head vals)
+      -- Don't advance a if the position isn't changing
+      (_, vals') = L.mapAccumL (\a r -> let c = readGroundPosition WGS84 $ pf r
                                             d = distance home c
-                                            c' = readGroundPosition WGS84 $ pf a
-                                            t = parseTS (df b) (tf b) tz
-                                            t' = parseTS (df a) (tf a) tz
-                                            s = speed t' t c c' in
-                                          (b, b V.++ V.fromList [show (d D./~ meter), show s]))
-                   first (tail vals) in
+                                            c' = readGroundPosition WGS84 $ pf $ head a
+                                            t = parseTS (df r) (tf r) tz
+                                            t' = parseTS (df $ head a) (tf $ head a) tz
+                                            s = speed t t' c c' in
+                                          (prune tz hdr a r t,
+                                           r V.++ V.fromList [show (d D./~ meter), show s]))
+                   vals vals in
     (hdr V.++ V.fromList ["distance", "speed"]) : vals'
 
 main :: IO ()
