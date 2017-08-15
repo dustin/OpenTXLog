@@ -19,7 +19,8 @@ distance (Just a) (Just b) = case groundDistance a b of
 
 
 parseTS ds ts tz =
-  let lt = (LocalTime <$> parseTimeM True defaultTimeLocale "%F" ds <*> parseTimeM True defaultTimeLocale "%H:%M:%s%Q" ts) in
+  let l = defaultTimeLocale
+      lt = (LocalTime <$> parseTimeM True l "%F" ds <*> parseTimeM True l "%H:%M:%S%Q" ts) in
     localTimeToUTC tz (lt())
 
 diffTime t1 t2 = abs (realToFrac $ diffUTCTime t1 t2) D.*~ second
