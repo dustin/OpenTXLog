@@ -14,11 +14,17 @@ distance (Just a) (Just b) = case groundDistance a b of
                                Nothing -> _0
                                Just (d, _, _) -> if (isNaN (d /~ meter)) then _0 else d
 
+byName :: String -> (V.Vector String) -> (V.Vector String) -> String
+byName field hdr row = case V.elemIndex field hdr of
+                         Nothing -> ""
+                         Just n -> row V.! n
+
 process :: (V.Vector String) -> [V.Vector String] -> [V.Vector String]
 process hdr vals =
-  let home = (readGroundPosition WGS84 $ (head vals) V.! 11) in
+  let pf = byName "GPS" hdr
+      home = (readGroundPosition WGS84 $ pf (head vals)) in
     (V.snoc hdr "distance") : L.map (\b ->
-                                       let c = readGroundPosition WGS84 $ b V.! 11
+                                       let c = readGroundPosition WGS84 $ pf b
                                            d = distance home c in
                                          V.snoc b (show (d /~ meter))) vals
 
