@@ -13,15 +13,23 @@ import qualified Data.List as L
 import qualified Data.Vector as V
 import qualified Numeric.Units.Dimensional as D
 
+type FieldLookup = String -> (V.Vector String) -> String
+
 distance (Just a) (Just b) = case groundDistance a b of
                                Nothing -> D._0
                                Just (d, _, _) -> if (isNaN (d D./~ meter)) then D._0 else d
 
 
-parseTS ds ts tz =
+parseTS tz ds ts =
   let l = defaultTimeLocale
       lt = (LocalTime <$> parseTimeM True l "%F" ds <*> parseTimeM True l "%H:%M:%S%Q" ts) in
     localTimeToUTC tz (lt())
+
+parseRowTS :: TimeZone -> FieldLookup -> (V.Vector String) -> UTCTime
+parseRowTS tz hdr =
+  let df = hdr "Date"
+      tf = hdr "Time" in
+    (\r -> parseTS tz (hdr "Date" r) (hdr "Time" r))
 
 diffTime t1 t2 = (realToFrac $ diffUTCTime t1 t2) D.*~ second
 
@@ -31,39 +39,35 @@ speed ts1 ts2 pos1 pos2 =
   ((distance pos1 pos2) D./ (diffTime ts1 ts2)) D./~ kph
 
 
-byName :: String -> (V.Vector String) -> (V.Vector String) -> String
-byName field hdr = case V.elemIndex field hdr of
+byName :: (V.Vector String) -> FieldLookup
+byName hdr field = case V.elemIndex field hdr of
                      Nothing -> (\_ -> "")
                      Just n -> (\r -> r V.! n)
 
 minDur = 4
 
 -- Trailing edge for computing speed
-prune :: TimeZone -> (V.Vector String) -> [V.Vector String] -> (V.Vector String) -> UTCTime -> [V.Vector String]
-prune tz hdr vals current now
+prune :: (V.Vector String -> UTCTime) -> FieldLookup -> [V.Vector String] -> (V.Vector String) -> UTCTime -> [V.Vector String]
+prune pt hdr vals current now
   | pos == (pf $ head vals) = vals
   | otherwise =
-      let dt r = diffUTCTime now (parseTS (df r) (tf r) tz) in
+      let dt r = diffUTCTime now (pt r) in
         L.dropWhile (\r -> dt r > minDur) vals
-  where pf = byName "GPS" hdr
-        df = byName "Date" hdr
-        tf = byName "Time" hdr
+  where pf = hdr "GPS"
         pos = (pf current)
 
-process :: TimeZone -> (V.Vector String) -> [V.Vector String] -> [V.Vector String]
-process tz hdr vals =
-  let pf = byName "GPS" hdr
-      df = byName "Date" hdr
-      tf = byName "Time" hdr
+process :: (V.Vector String -> UTCTime) -> (V.Vector String) -> [V.Vector String] -> [V.Vector String]
+process pt hdr vals =
+  let pf = byName hdr "GPS"
       home = (readGroundPosition WGS84 $ pf $ head vals)
       -- Don't advance a if the position isn't changing
       (_, vals') = L.mapAccumL (\a r -> let c = readGroundPosition WGS84 $ pf r
                                             d = distance home c
                                             c' = readGroundPosition WGS84 $ pf $ head a
-                                            t = parseTS (df r) (tf r) tz
-                                            t' = parseTS (df $ head a) (tf $ head a) tz
+                                            t = pt r
+                                            t' = pt $ head a
                                             s = speed t t' c c' in
-                                          (prune tz hdr a r t,
+                                          (prune pt (byName hdr) a r t,
                                            r V.++ V.fromList [show (d D./~ meter), show s]))
                    vals vals in
     (hdr V.++ V.fromList ["distance", "speed"]) : vals'
@@ -76,4 +80,6 @@ main = do
   case decode NoHeader csvData :: Either String (V.Vector (V.Vector String)) of
     Left err -> putStrLn err
     Right v ->
-      BL.putStr $ encode $ process tz (V.head v) $ V.toList $ V.tail v
+      let hdr = V.head v
+          body = V.toList $ V.tail v in
+        BL.putStr $ encode $ process (parseRowTS tz $ byName hdr) hdr body
