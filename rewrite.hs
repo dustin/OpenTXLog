@@ -15,52 +15,56 @@ import qualified Numeric.Units.Dimensional as D
 
 type FieldLookup = String -> (V.Vector String) -> String
 
-distance (Just a) (Just b) = case groundDistance a b of
-                               Nothing -> D._0
-                               Just (d, _, _) -> if (isNaN (d D./~ meter)) then D._0 else d
-
-
+-- Parse a timestamp to a UTCTime given the timezone and a separate date and time string.
+parseTS :: TimeZone -> String -> String -> UTCTime
 parseTS tz ds ts =
   let l = defaultTimeLocale
       lt = (LocalTime <$> parseTimeM True l "%F" ds <*> parseTimeM True l "%H:%M:%S%Q" ts) in
     localTimeToUTC tz (lt())
 
+-- Parse the timestamp out of a row.
 parseRowTS :: TimeZone -> FieldLookup -> (V.Vector String) -> UTCTime
 parseRowTS tz hdr =
   let df = hdr "Date"
       tf = hdr "Time" in
     (\r -> parseTS tz (hdr "Date" r) (hdr "Time" r))
 
-diffTime t1 t2 = (realToFrac $ diffUTCTime t1 t2) D.*~ second
+-- Distance (in meters) between two points.
+distance (Just a) (Just b) = case groundDistance a b of
+                               Nothing -> D._0
+                               Just (d, _, _) -> if (isNaN (d D./~ meter)) then D._0 else d
 
-kph = (kilo meter D./ hour)
-
+-- Average speed in kph it took to get between two points based on the start and end timestamp.
 speed ts1 ts2 pos1 pos2 =
-  ((distance pos1 pos2) D./ (diffTime ts1 ts2)) D./~ kph
+  let tΔ = (realToFrac $ diffUTCTime ts1 ts2) D.*~ second in
+    ((distance pos1 pos2) D./ tΔ) D./~ (kilo meter D./ hour)
 
-
+-- Create a FieldLookup function to look up fields in a row by name (based on the header row)
 byName :: (V.Vector String) -> FieldLookup
 byName hdr field = case V.elemIndex field hdr of
                      Nothing -> (\_ -> "")
                      Just n -> (\r -> r V.! n)
 
+-- Drop any records when the GPS position isn't updating.
+dropDup _ _ [] rv = reverse rv
+dropDup pf prev (x:xs) rv
+  | cur == prev = dropDup pf prev xs rv
+  | otherwise = dropDup pf cur xs (x : rv)
+  where cur = pf x
+
 minDur = 4
 
--- Trailing edge for computing speed
+-- Remove entries from the head of a list that are within minDur of "now"
 prune :: (V.Vector String -> UTCTime) -> FieldLookup -> [V.Vector String] -> (V.Vector String) -> UTCTime -> [V.Vector String]
-prune pt hdr vals current now
-  | pos == (pf $ head vals) = vals
-  | otherwise =
-      let dt r = diffUTCTime now (pt r) in
-        L.dropWhile (\r -> dt r > minDur) vals
-  where pf = hdr "GPS"
-        pos = (pf current)
+prune pt hdr vals current now =
+  let dt r = diffUTCTime now (pt r) in
+    L.dropWhile (\r -> dt r > minDur) vals
 
+-- Add distance and speed columns to telemetry logs.
 process :: (V.Vector String -> UTCTime) -> (V.Vector String) -> [V.Vector String] -> [V.Vector String]
 process pt hdr vals =
   let pf = byName hdr "GPS"
       home = (readGroundPosition WGS84 $ pf $ head vals)
-      -- Don't advance a if the position isn't changing
       (_, vals') = L.mapAccumL (\a r -> let c = readGroundPosition WGS84 $ pf r
                                             d = distance home c
                                             c' = readGroundPosition WGS84 $ pf $ head a
@@ -69,7 +73,7 @@ process pt hdr vals =
                                             s = speed t t' c c' in
                                           (prune pt (byName hdr) a r t,
                                            r V.++ V.fromList [show (d D./~ meter), show s]))
-                   vals vals in
+                   (dropDup pf "" vals []) vals in
     (hdr V.++ V.fromList ["distance", "speed"]) : vals'
 
 main :: IO ()
