@@ -1,18 +1,17 @@
 #!/usr/bin/env stack
 -- stack --system-ghc runghc --package cassava --package geodetics --package time
 
-import Debug.Trace
-import Data.Csv
 import Control.Exception.Base
+import Data.Csv
+import Data.Time
+import Data.Time.LocalTime
 import Geodetics.Geodetic
-import qualified Numeric.Units.Dimensional as D
 import Numeric.Units.Dimensional.SIUnits
 import System.Environment
-import Data.Time.LocalTime
-import Data.Time
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.List as L
 import qualified Data.Vector as V
+import qualified Numeric.Units.Dimensional as D
 
 distance (Just a) (Just b) = case groundDistance a b of
                                Nothing -> D._0
