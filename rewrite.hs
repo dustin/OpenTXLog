@@ -15,9 +15,9 @@ distance (Just a) (Just b) = case groundDistance a b of
                                Just (d, _, _) -> if (isNaN (d /~ meter)) then _0 else d
 
 byName :: String -> (V.Vector String) -> (V.Vector String) -> String
-byName field hdr row = case V.elemIndex field hdr of
-                         Nothing -> ""
-                         Just n -> row V.! n
+byName field hdr = case V.elemIndex field hdr of
+                     Nothing -> (\_ -> "")
+                     Just n -> (\r -> r V.! n)
 
 process :: (V.Vector String) -> [V.Vector String] -> [V.Vector String]
 process hdr vals =
