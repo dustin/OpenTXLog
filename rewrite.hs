@@ -80,7 +80,7 @@ process pt hdr vals =
 main :: IO ()
 main = do
   tz <- getCurrentTimeZone
-  file <- fmap head getArgs
+  file <- head <$> getArgs
   csvData <- BL.readFile file
   case decode NoHeader csvData :: Either String (V.Vector (V.Vector String)) of
     Left err -> putStrLn err
