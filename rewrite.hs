@@ -39,7 +39,7 @@ speed ts1 ts2 pos1 pos2 =
   let tΔ = (realToFrac $ diffUTCTime ts1 ts2) D.*~ second
       pΔ = distance pos1 pos2
       ε = 1 D.*~ second in
-    (if (tΔ <= ε) then D._0 else (pΔ D./ tΔ)) D./~ (kilo meter D./ hour)
+    (if tΔ <= ε then D._0 else pΔ D./ tΔ) D./~ (kilo meter D./ hour)
 
 -- Create a FieldLookup function to look up fields in a row by name (based on the header row)
 byName :: (V.Vector String) -> FieldLookup
