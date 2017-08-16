@@ -1,7 +1,6 @@
 #!/usr/bin/env stack
 -- stack --system-ghc runghc --package cassava --package geodetics --package time
 
-import Control.Exception.Base
 import Data.Csv
 import Data.Time
 import Data.Time.LocalTime
