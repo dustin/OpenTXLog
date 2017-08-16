@@ -36,8 +36,11 @@ distance (Just a) (Just b) = case groundDistance a b of
 
 -- Average speed in kph it took to get between two points based on the start and end timestamp.
 speed ts1 ts2 pos1 pos2 =
-  let tΔ = (realToFrac $ diffUTCTime ts1 ts2) D.*~ second in
-    ((distance pos1 pos2) D./ tΔ) D./~ (kilo meter D./ hour)
+  let tΔ = (realToFrac $ diffUTCTime ts1 ts2) D.*~ second
+      pΔ = distance pos1 pos2
+      zero = D._0 D./~ (kilo meter D./ hour)
+      ε = 1 D.*~ second in
+    if (tΔ <= ε) then zero else (pΔ D./ tΔ) D./~ (kilo meter D./ hour)
 
 -- Create a FieldLookup function to look up fields in a row by name (based on the header row)
 byName :: (V.Vector String) -> FieldLookup
