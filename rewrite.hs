@@ -42,9 +42,7 @@ speed ts1 ts2 pos1 pos2 =
 
 -- Create a FieldLookup function to look up fields in a row by name (based on the header row)
 byName :: (V.Vector String) -> FieldLookup
-byName hdr field = case V.elemIndex field hdr of
-                     Nothing -> (\_ -> "")
-                     Just n -> (\r -> r V.! n)
+byName hdr field = maybe (\_ -> "") (\n r -> r V.! n) $ V.elemIndex field hdr
 
 -- Drop any records when the GPS position isn't updating.
 dropDup _ _ [] rv = reverse rv
