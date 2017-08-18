@@ -57,7 +57,7 @@ minDur = 4
 prune :: (V.Vector String -> UTCTime) -> FieldLookup -> [V.Vector String] -> (V.Vector String) -> UTCTime -> [V.Vector String]
 prune pt hdr vals current now =
   let dt r = diffUTCTime now (pt r) in
-    L.dropWhile (\r -> dt r > minDur) vals
+    L.dropWhile ((> minDur) . dt) vals
 
 -- Add distance and speed columns to telemetry logs.
 process :: (V.Vector String -> UTCTime) -> (V.Vector String) -> [V.Vector String] -> [V.Vector String]
