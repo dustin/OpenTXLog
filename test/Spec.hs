@@ -1,5 +1,8 @@
 import OpenTXLog
 
+import Data.List
+import Data.Function
+
 import Test.HUnit
 import Test.QuickCheck
 import Test.QuickCheck.Arbitrary
@@ -26,9 +29,12 @@ prop_no_dups xs =
   nodups (dropDup id xs)
   where types = (xs :: [Int])
 
+prop_dup_group xs = (dropDup id xs) == (map head $ groupBy (on (==) id) xs)
+
 tests = [
   testProperty "drop dup drops dups" prop_no_dups,
   testProperty "dedup idempotency" prop_dedup_dedup,
+  testProperty "dedup vs. groupBy" (prop_dup_group ::[Int] -> Bool),
   testCase "no dups" no_dups,
   testCase "has dups" has_dups,
   testCase "allow dups" nodups_notuniq
