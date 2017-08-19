@@ -12,7 +12,7 @@ import qualified Data.List as L
 import qualified Data.Vector as V
 import qualified Numeric.Units.Dimensional as D
 
-type FieldLookup = String -> (V.Vector String) -> String
+import OpenTXLog
 
 -- Parse a timestamp to a UTCTime given the timezone and a separate date and time string.
 parseTS :: TimeZone -> String -> String -> UTCTime
