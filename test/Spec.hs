@@ -17,6 +17,8 @@ no_dups = assertBool "no dups" (nodups [1..6])
 
 has_dups = assertBool "has dups" (not $ nodups [1, 2, 3, 3, 4, 5, 6])
 
+nodups_notuniq = assertEqual "can has dup" (dropDup id [1, 1, 2, 1, 1, 3]) [1, 2, 1, 3]
+
 prop_no_dups xs =
   nodups (dropDup id xs)
   where types = (xs :: [Int])
@@ -24,7 +26,8 @@ prop_no_dups xs =
 tests = [
   testProperty "drop dup drops dups" prop_no_dups,
   testCase "no dups" no_dups,
-  testCase "has dups" has_dups
+  testCase "has dups" has_dups,
+  testCase "allow dups" nodups_notuniq
   ]
 
 main = defaultMain tests
