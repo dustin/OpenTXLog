@@ -18,7 +18,7 @@ no_dups = assertBool "no dups" (nodups [1..6])
 has_dups = assertBool "has dups" (not $ nodups [1, 2, 3, 3, 4, 5, 6])
 
 prop_no_dups xs =
-  nodups (dropDup id 11 xs [])
+  nodups (dropDup id xs)
   where types = (xs :: [Int])
 
 tests = [

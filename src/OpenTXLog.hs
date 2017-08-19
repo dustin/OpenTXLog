@@ -47,12 +47,8 @@ speed ts1 ts2 pos1 pos2 =
 byName :: (V.Vector String) -> FieldLookup
 byName hdr field = maybe (\_ -> "") (flip (V.!)) $ V.elemIndex field hdr
 
--- Drop any records when the GPS position isn't updating.
-dropDup _ _ [] rv = reverse rv
-dropDup pf prev (x:xs) rv
-  | cur == prev = dropDup pf prev xs rv
-  | otherwise = dropDup pf cur xs (x : rv)
-  where cur = pf x
+dropDup pf [] = []
+dropDup pf (x:xs) = x:(dropDup pf $ dropWhile (((pf x) ==) . pf) xs)
 
 minDur = 4
 
@@ -76,5 +72,5 @@ process pt hdr vals =
                                             s = speed t t' c c' in
                                           (prune pt (byName hdr) a r t,
                                            r V.++ V.fromList [show (d D./~ meter), show s]))
-                   (dropDup pf "" vals []) vals in
+                   (dropDup pf vals) vals in
     (hdr V.++ V.fromList ["distance", "speed"]) : vals'
