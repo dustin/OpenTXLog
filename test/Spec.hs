@@ -23,17 +23,14 @@ has_dups = assertBool "has dups" (not $ nodups [1, 2, 3, 3, 4, 5, 6])
 nodups_notuniq = assertEqual "can has dup" (dropDup id [1, 1, 2, 1, 1, 3]) [1, 2, 1, 3]
 
 prop_dedup_dedup xs = dropDup id xs == dropDup id (dropDup id xs)
-  where types = (xs :: [Int])
 
-prop_no_dups xs =
-  nodups (dropDup id xs)
-  where types = (xs :: [Int])
+prop_no_dups xs = nodups (dropDup id xs)
 
 prop_dup_group xs = (dropDup id xs) == (map head $ groupBy (on (==) id) xs)
 
 tests = [
-  testProperty "drop dup drops dups" prop_no_dups,
-  testProperty "dedup idempotency" prop_dedup_dedup,
+  testProperty "drop dup drops dups" (prop_no_dups ::[Int] -> Bool),
+  testProperty "dedup idempotency" (prop_dedup_dedup ::[Int] -> Bool),
   testProperty "dedup vs. groupBy" (prop_dup_group ::[Int] -> Bool),
   testCase "no dups" no_dups,
   testCase "has dups" has_dups,
