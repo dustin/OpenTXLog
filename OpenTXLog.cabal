@@ -19,6 +19,8 @@ library
   build-depends:       base >= 4.7 && < 5
                      , vector
                      , geodetics
+                     , dimensional
+                     , time
   default-language:    Haskell2010
 
 executable OpenTXLog-exe
@@ -29,9 +31,7 @@ executable OpenTXLog-exe
                      , OpenTXLog
                      , cassava
                      , time
-                     , geodetics
                      , bytestring
-                     , dimensional
                      , vector
   default-language:    Haskell2010
 
