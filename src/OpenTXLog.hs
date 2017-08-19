@@ -6,6 +6,7 @@ module OpenTXLog (
   , dropDup
   ) where
 
+import Data.Function (on)
 import Data.Time
 import Data.Time.LocalTime
 import Geodetics.Geodetic
@@ -48,7 +49,7 @@ byName :: (V.Vector String) -> FieldLookup
 byName hdr field = maybe (\_ -> "") (flip (V.!)) $ V.elemIndex field hdr
 
 dropDup pf [] = []
-dropDup pf (x:xs) = x:(dropDup pf $ dropWhile (((pf x) ==) . pf) xs)
+dropDup pf (x:xs) = x:(dropDup pf $ dropWhile (on (==) pf x) xs)
 
 minDur = 4
 
