@@ -3,6 +3,7 @@ module OpenTXLog (
   , process
   , parseRowTS
   , byName
+  , dropDup
   ) where
 
 import Data.Time
