@@ -15,7 +15,7 @@ import qualified Data.List as L
 import qualified Data.Vector as V
 import qualified Numeric.Units.Dimensional as D
 
-type FieldLookup = String -> (V.Vector String) -> String
+type FieldLookup = String -> V.Vector String -> String
 
 
 -- Parse a timestamp to a UTCTime given the timezone and a separate date and time string.
@@ -26,7 +26,7 @@ parseTS tz ds ts =
     localTimeToUTC tz (lt())
 
 -- Parse the timestamp out of a row.
-parseRowTS :: TimeZone -> FieldLookup -> (V.Vector String) -> UTCTime
+parseRowTS :: TimeZone -> FieldLookup -> V.Vector String -> UTCTime
 parseRowTS tz hdr =
   let df = hdr "Date"
       tf = hdr "Time" in
@@ -35,33 +35,33 @@ parseRowTS tz hdr =
 -- Distance (in meters) between two points.
 distance (Just a) (Just b) = case groundDistance a b of
                                Nothing -> D._0
-                               Just (d, _, _) -> if (isNaN (d D./~ meter)) then D._0 else d
+                               Just (d, _, _) -> if isNaN (d D./~ meter) then D._0 else d
 
 -- Average speed in kph it took to get between two points based on the start and end timestamp.
 speed ts1 ts2 pos1 pos2 =
-  let tΔ = (realToFrac $ diffUTCTime ts1 ts2) D.*~ second
+  let tΔ = realToFrac (diffUTCTime ts1 ts2) D.*~ second
       pΔ = distance pos1 pos2
       ε = 1 D.*~ second in
     (if tΔ <= ε then D._0 else pΔ D./ tΔ) D./~ (kilo meter D./ hour)
 
 -- Create a FieldLookup function to look up fields in a row by name (based on the header row)
-byName :: (V.Vector String) -> FieldLookup
-byName hdr field = maybe (\_ -> "") (flip (V.!)) $ V.elemIndex field hdr
+byName :: V.Vector String -> FieldLookup
+byName hdr field = maybe (const "") (flip (V.!)) $ V.elemIndex field hdr
 
 dropDup pf [] = []
-dropDup pf (x:xs) = x:(dropDup pf $ dropWhile (on (==) pf x) xs)
+dropDup pf (x:xs) = x:dropDup pf (dropWhile (on (==) pf x) xs)
 
 minDur = 4
 
 -- Remove entries from the head of a list that are within minDur of "now"
-prune :: (V.Vector String -> UTCTime) -> FieldLookup -> [V.Vector String] -> (V.Vector String) -> UTCTime -> [V.Vector String]
+prune :: (V.Vector String -> UTCTime) -> FieldLookup -> [V.Vector String] -> V.Vector String -> UTCTime -> [V.Vector String]
 prune pt hdr vals current now =
   let dt r = diffUTCTime now (pt r) in
     L.dropWhile ((> minDur) . dt) vals
 
 
 -- Add distance and speed columns to telemetry logs.
-process :: (V.Vector String -> UTCTime) -> (V.Vector String) -> [V.Vector String] -> [V.Vector String]
+process :: (V.Vector String -> UTCTime) -> V.Vector String -> [V.Vector String] -> [V.Vector String]
 process pt hdr vals =
   let pf = byName hdr "GPS"
       home = (readGroundPosition WGS84 $ pf $ head vals)
