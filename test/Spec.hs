@@ -4,9 +4,7 @@ import Data.List
 import Data.Function
 
 import Test.HUnit
-import Test.QuickCheck
-import Test.QuickCheck.Arbitrary
-import Test.Framework (defaultMain, testGroup)
+import Test.Framework (defaultMain)
 import Test.Framework.Providers.HUnit
 import Test.Framework.Providers.QuickCheck2 (testProperty)
 
@@ -14,7 +12,7 @@ nodups [] = True
 nodups (a:b:xs)
   | a == b = False
   | otherwise = nodups (b:xs)
-nodups (x:xs) = True
+nodups _ = True
 
 testNoDups = assertBool "no dups" (nodups [1..6])
 
