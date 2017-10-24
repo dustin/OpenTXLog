@@ -8,8 +8,8 @@ module OpenTXLog (
 
 import Data.Function (on)
 import Data.Time
-import Data.Time.LocalTime
 import Geodetics.Geodetic
+import Geodetics.Ellipsoids (Ellipsoid)
 import Numeric.Units.Dimensional.SIUnits
 import qualified Data.List as L
 import qualified Data.Vector as V
@@ -27,17 +27,17 @@ parseTS tz ds ts =
 
 -- Parse the timestamp out of a row.
 parseRowTS :: TimeZone -> FieldLookup -> V.Vector String -> UTCTime
-parseRowTS tz hdr =
-  let df = hdr "Date"
-      tf = hdr "Time" in
-    (\r -> parseTS tz (hdr "Date" r) (hdr "Time" r))
+parseRowTS tz hdr r = parseTS tz (hdr "Date" r) (hdr "Time" r)
 
 -- Distance (in meters) between two points.
+distance :: Ellipsoid e => Maybe (Geodetic e) -> Maybe (Geodetic e) -> D.Quantity D.DLength Double
 distance (Just a) (Just b) = case groundDistance a b of
                                Nothing -> D._0
                                Just (d, _, _) -> if isNaN (d D./~ meter) then D._0 else d
+distance _ _ = D._0
 
 -- Average speed in kph it took to get between two points based on the start and end timestamp.
+speed :: Ellipsoid e => UTCTime -> UTCTime -> Maybe (Geodetic e) -> Maybe (Geodetic e) -> Double
 speed ts1 ts2 pos1 pos2 =
   let tΔ = realToFrac (diffUTCTime ts1 ts2) D.*~ second
       pΔ = distance pos1 pos2
@@ -48,14 +48,16 @@ speed ts1 ts2 pos1 pos2 =
 byName :: V.Vector String -> FieldLookup
 byName hdr field = maybe (const "") (flip (V.!)) $ V.elemIndex field hdr
 
-dropDup pf [] = []
+dropDup :: Eq a => (t -> a) -> [t] -> [t]
+dropDup _ [] = []
 dropDup pf (x:xs) = x:dropDup pf (dropWhile (on (==) pf x) xs)
 
+minDur :: NominalDiffTime
 minDur = 4
 
 -- Remove entries from the head of a list that are within minDur of "now"
-prune :: (V.Vector String -> UTCTime) -> FieldLookup -> [V.Vector String] -> V.Vector String -> UTCTime -> [V.Vector String]
-prune pt hdr vals current now =
+prune :: (V.Vector String -> UTCTime)  -> [V.Vector String] -> UTCTime -> [V.Vector String]
+prune pt vals now =
   let dt r = diffUTCTime now (pt r) in
     L.dropWhile ((> minDur) . dt) vals
 
@@ -71,7 +73,7 @@ process pt hdr vals =
                                             t = pt r
                                             t' = pt $ head a
                                             s = speed t t' c c' in
-                                          (prune pt (byName hdr) a r t,
+                                          (prune pt a t,
                                            r V.++ V.fromList [show (d D./~ meter), show s]))
                    (dropDup pf vals) vals in
     (hdr V.++ V.fromList ["distance", "speed"]) : vals'
