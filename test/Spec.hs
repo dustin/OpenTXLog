@@ -6,6 +6,7 @@ import Data.Function (on)
 import Test.HUnit (Assertion, assertEqual, assertBool)
 import Test.Framework (defaultMain, Test)
 import Test.Framework.Providers.HUnit (testCase)
+import Test.QuickCheck (Property, (==>))
 import Test.Framework.Providers.QuickCheck2 (testProperty)
 
 nodups :: Eq a => [a] -> Bool
@@ -14,6 +15,9 @@ nodups (a:b:xs)
   | a == b = False
   | otherwise = nodups (b:xs)
 nodups _ = True
+
+hasdups :: Eq a => [a] -> Bool
+hasdups = not . nodups
 
 testNoDups :: Assertion
 testNoDups = assertBool "no dups" (nodups [1..6])
@@ -38,10 +42,24 @@ tests = [
   testProperty "drop dup drops dups" (prop_no_dups ::[Int] -> Bool),
   testProperty "dedup idempotency" (prop_dedup_dedup ::[Int] -> Bool),
   testProperty "dedup vs. groupBy" (prop_dup_group ::[Int] -> Bool),
+
+  testProperty "drop dup drops dups (all dups)" (dups prop_no_dups),
+  testProperty "dedup idempotency (all dups)" (dups prop_dedup_dedup),
+  testProperty "dedup vs. groupBy (all dups)" (dups prop_dup_group),
+
+  testProperty "drop dup drops dups (no dups)" (nod prop_no_dups),
+  testProperty "dedup idempotency (no dups)" (nod prop_dedup_dedup),
+  testProperty "dedup vs. groupBy (no dups)" (nod prop_dup_group),
+
   testCase "no dups" testNoDups,
   testCase "has dups" testHasDups,
   testCase "allow dups" testNoDupsNotuniq
   ]
+  where
+    dups :: ([Int] -> Bool) -> [Int] -> Property
+    dups f xs = hasdups xs ==> f xs
+    nod :: ([Int] -> Bool) -> [Int] -> Property
+    nod f xs = nodups xs ==> f xs
 
 main :: IO ()
 main = defaultMain tests
