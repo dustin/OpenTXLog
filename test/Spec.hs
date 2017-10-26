@@ -7,6 +7,7 @@ import Test.HUnit (Assertion, assertEqual, assertBool)
 import Test.Framework (defaultMain, Test)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.QuickCheck (Property, (==>))
+import Test.Invariant (idempotent, (<=>), (&>))
 import Test.Framework.Providers.QuickCheck2 (testProperty)
 
 nodups :: Eq a => [a] -> Bool
@@ -28,38 +29,33 @@ testHasDups = assertBool "has dups" (not $ nodups [1, 2, 3, 3, 4, 5, 6])
 testNoDupsNotuniq :: Assertion
 testNoDupsNotuniq = assertEqual "can has dup" (dropDup id [1, 1, 2, 1, 1, 3]) [1, 2, 1, 3]
 
-prop_dedup_dedup :: Eq a => [a] -> Bool
-prop_dedup_dedup xs = dropDup id xs == dropDup id (dropDup id xs)
+prop_dedup_dedup :: [Int] -> Bool
+prop_dedup_dedup = idempotent (dropDup id)
 
-prop_no_dups :: Eq a => [a] -> Bool
+prop_no_dups :: [Int] -> Bool
 prop_no_dups xs = nodups (dropDup id xs)
 
-prop_dup_group :: Eq a => [a] -> Bool
-prop_dup_group xs = dropDup id xs == map head (groupBy (on (==) id) xs)
+prop_dup_group :: [Int] -> Bool
+prop_dup_group = dropDup id <=> (map head) . groupBy (on (==) id)
 
 tests :: [Test]
 tests = [
-  testProperty "drop dup drops dups" (prop_no_dups ::[Int] -> Bool),
-  testProperty "dedup idempotency" (prop_dedup_dedup ::[Int] -> Bool),
-  testProperty "dedup vs. groupBy" (prop_dup_group ::[Int] -> Bool),
+  testProperty "drop dup drops dups" prop_no_dups,
+  testProperty "dedup idempotency" prop_dedup_dedup,
+  testProperty "dedup vs. groupBy" prop_dup_group,
 
-  testProperty "drop dup drops dups (all dups)" (dups prop_no_dups),
-  testProperty "dedup idempotency (all dups)" (dups prop_dedup_dedup),
-  testProperty "dedup vs. groupBy (all dups)" (dups prop_dup_group),
+  testProperty "drop dup drops dups (all dups)" (hasdups &> prop_no_dups),
+  testProperty "dedup idempotency (all dups)" (hasdups &> prop_dedup_dedup),
+  testProperty "dedup vs. groupBy (all dups)" (hasdups &> prop_dup_group),
 
-  testProperty "drop dup drops dups (no dups)" (nod prop_no_dups),
-  testProperty "dedup idempotency (no dups)" (nod prop_dedup_dedup),
-  testProperty "dedup vs. groupBy (no dups)" (nod prop_dup_group),
+  testProperty "drop dup drops dups (no dups)" (nodups &> prop_no_dups),
+  testProperty "dedup idempotency (no dups)" (nodups &> prop_dedup_dedup),
+  testProperty "dedup vs. groupBy (no dups)" (nodups &> prop_dup_group),
 
   testCase "no dups" testNoDups,
   testCase "has dups" testHasDups,
   testCase "allow dups" testNoDupsNotuniq
   ]
-  where
-    dups :: ([Int] -> Bool) -> [Int] -> Property
-    dups f xs = hasdups xs ==> f xs
-    nod :: ([Int] -> Bool) -> [Int] -> Property
-    nod f xs = nodups xs ==> f xs
 
 main :: IO ()
 main = defaultMain tests

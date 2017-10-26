@@ -44,7 +44,7 @@ test-suite OpenTXLog-test
   build-depends:       base
                      , OpenTXLog
                      , HUnit
-                     , QuickCheck
+                     , QuickCheck, test-invariant
                      , test-framework
                      , test-framework-hunit, test-framework-quickcheck2
   ghc-options:         -Wall -threaded -rtsopts -with-rtsopts=-N
