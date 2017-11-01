@@ -1,14 +1,14 @@
+{-# OPTIONS_GHC -Wno-type-defaults #-}
+
 import OpenTXLog
 
 import Data.List (groupBy)
 import Data.Function (on)
 
-import Test.HUnit (Assertion, assertEqual, assertBool)
-import Test.Framework (defaultMain, Test)
-import Test.Framework.Providers.HUnit (testCase)
-import Test.QuickCheck (Property, (==>))
+import Test.Tasty
+import Test.Tasty.QuickCheck as QC
+import Test.Tasty.HUnit
 import Test.Invariant (idempotent, (<=>), (&>))
-import Test.Framework.Providers.QuickCheck2 (testProperty)
 
 nodups :: Eq a => [a] -> Bool
 nodups [] = True
@@ -38,7 +38,7 @@ prop_no_dups xs = nodups (dropDup id xs)
 prop_dup_group :: [Int] -> Bool
 prop_dup_group = dropDup id <=> (map head) . groupBy (on (==) id)
 
-tests :: [Test]
+tests :: [TestTree]
 tests = [
   testProperty "drop dup drops dups" prop_no_dups,
   testProperty "dedup idempotency" prop_dedup_dedup,
@@ -58,4 +58,4 @@ tests = [
   ]
 
 main :: IO ()
-main = defaultMain tests
+main = defaultMain $ testGroup "All Tests" tests
