@@ -66,7 +66,7 @@ prune pt vals now =
 process :: (V.Vector String -> UTCTime) -> V.Vector String -> [V.Vector String] -> [V.Vector String]
 process pt hdr vals =
   let pf = byName hdr "GPS"
-      home = (readGroundPosition WGS84 $ pf $ head vals)
+      home = (readGroundPosition WGS84 $ pf $ head (dropWhile (\r -> pf r == "") vals))
       (_, vals') = L.mapAccumL (\a r -> let c = readGroundPosition WGS84 $ pf r
                                             d = distance home c
                                             c' = readGroundPosition WGS84 $ pf $ head a
