@@ -66,10 +66,11 @@ prune pt vals now =
 process :: (V.Vector String -> UTCTime) -> V.Vector String -> [V.Vector String] -> [V.Vector String]
 process pt hdr vals =
   let pf = byName hdr "GPS"
-      home = foldr (\x o -> if pf x == "" then o else (readGroundPosition WGS84 . pf) x) Nothing vals
-      (_, vals') = L.mapAccumL (\a r -> let c = readGroundPosition WGS84 $ pf r
+      rgp = readGroundPosition WGS84 . pf
+      home = foldr (\x o -> if pf x == "" then o else rgp x) Nothing vals
+      (_, vals') = L.mapAccumL (\a r -> let c = rgp r
                                             d = distance home c
-                                            c' = readGroundPosition WGS84 $ pf $ head a
+                                            c' = rgp $ head a
                                             t = pt r
                                             t' = pt $ head a
                                             s = speed t t' c c' in
