@@ -7,6 +7,7 @@ module OpenTXLog (
   ) where
 
 import Data.Function (on)
+import Data.Semigroup ((<>))
 import Data.Time
 import Geodetics.Geodetic
 import Geodetics.Ellipsoids (Ellipsoid)
@@ -75,6 +76,6 @@ process pt hdr vals =
                                             t' = pt $ head a
                                             s = speed t t' c c' in
                                           (prune pt a t,
-                                           r V.++ V.fromList [show (d D./~ meter), show s]))
+                                           r <> V.fromList [show (d D./~ meter), show s]))
                    (dropDup pf vals) vals in
-    (hdr V.++ V.fromList ["distance", "speed"]) : vals'
+    (hdr <> V.fromList ["distance", "speed"]) : vals'
