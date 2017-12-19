@@ -5,4 +5,4 @@ packages:
 extra-deps:
 - geodetics-0.0.4
 - test-invariant-0.4.5.0
-resolver: lts-9.10
+resolver: lts-10.0
