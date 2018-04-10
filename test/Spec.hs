@@ -4,10 +4,12 @@ import OpenTXLog
 
 import Data.List (groupBy)
 import Data.Function (on)
+import Data.Csv (encode)
 
 import Test.Tasty
 import Test.Tasty.QuickCheck as QC
 import Test.Tasty.HUnit
+import Test.Tasty.Golden
 import Test.Invariant (idempotent, (<=>), (&>))
 
 nodups :: Eq a => [a] -> Bool
@@ -54,8 +56,12 @@ tests = [
 
   testCase "no dups" testNoDups,
   testCase "has dups" testHasDups,
-  testCase "allow dups" testNoDupsNotuniq
+  testCase "allow dups" testNoDupsNotuniq,
+
+  goldenVsString "golden sample" "test/sample.out" (pfile "test/sample.csv")
   ]
+
+  where pfile file = encode <$> (processCSVFile file)
 
 main :: IO ()
 main = defaultMain $ testGroup "All Tests" tests
