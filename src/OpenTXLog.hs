@@ -1,17 +1,20 @@
 module OpenTXLog (
   FieldLookup
   , process
+  , processCSVFile
   , parseRowTS
   , byName
   , dropDup
   ) where
 
+import Data.Csv (HasHeader(..), decode)
 import Data.Function (on)
 import Data.Semigroup ((<>))
 import Data.Time
-import Geodetics.Geodetic (Geodetic(..), WGS84(..), readGroundPosition, groundDistance)
 import Geodetics.Ellipsoids (Ellipsoid)
+import Geodetics.Geodetic (Geodetic(..), WGS84(..), readGroundPosition, groundDistance)
 import Numeric.Units.Dimensional.SIUnits
+import qualified Data.ByteString.Lazy as BL
 import qualified Data.List as L
 import qualified Data.Vector as V
 import qualified Numeric.Units.Dimensional as D
@@ -78,3 +81,14 @@ process pt hdr vals =
                                            r <> V.fromList [show (d D./~ meter), show s]))
                    (dropDup pf vals) vals in
     (hdr <> V.fromList ["distance", "speed"]) : vals'
+
+processCSVFile :: String -> IO [V.Vector String]
+processCSVFile file = do
+  tz <- getCurrentTimeZone
+  csvData <- BL.readFile file
+  case decode NoHeader csvData :: Either String (V.Vector (V.Vector String)) of
+    Left err -> fail (show err)
+    Right v ->
+      let hdr = V.head v
+          body = V.toList $ V.tail v in
+        pure $ process (parseRowTS tz $ byName hdr) hdr body
