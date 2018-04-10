@@ -9,7 +9,7 @@ module OpenTXLog (
 import Data.Function (on)
 import Data.Semigroup ((<>))
 import Data.Time
-import Geodetics.Geodetic
+import Geodetics.Geodetic (Geodetic(..), WGS84(..), readGroundPosition, groundDistance)
 import Geodetics.Ellipsoids (Ellipsoid)
 import Numeric.Units.Dimensional.SIUnits
 import qualified Data.List as L
