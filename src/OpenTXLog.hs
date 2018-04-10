@@ -32,10 +32,9 @@ parseRowTS tz hdr r = parseTS tz (hdr "Date" r) (hdr "Time" r)
 
 -- Distance (in meters) between two points.
 distance :: Ellipsoid e => Maybe (Geodetic e) -> Maybe (Geodetic e) -> D.Quantity D.DLength Double
-distance (Just a) (Just b) = case groundDistance a b of
-                               Nothing -> D._0
-                               Just (d, _, _) -> if isNaN (d D./~ meter) then D._0 else d
-distance _ _ = D._0
+distance a b = case groundDistance <$> a <*> b of
+                 Just (Just (d, _, _)) -> if isNaN (d D./~ meter) then D._0 else d
+                 _ -> D._0
 
 -- Average speed in kph it took to get between two points based on the start and end timestamp.
 speed :: Ellipsoid e => UTCTime -> UTCTime -> Maybe (Geodetic e) -> Maybe (Geodetic e) -> Double
