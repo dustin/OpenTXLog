@@ -83,7 +83,7 @@ process pt hdr vals =
                    (dropDup pf vals) vals in
     (hdr <> V.fromList ["distance", "speed"]) : vals'
 
-  where d2s = printf "%.6f"
+  where d2s = printf "%.5f"
 
 processCSVFile :: String -> IO [V.Vector String]
 processCSVFile file = do
