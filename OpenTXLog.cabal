@@ -56,3 +56,13 @@ test-suite OpenTXLog-test
 source-repository head
   type:     git
   location: https://github.com/dustin/OpenTXLog
+
+benchmark OpenTXLog-bench
+  type:               exitcode-stdio-1.0
+  hs-source-dirs:     test/bench
+  main-is:            Bench.hs
+  build-depends:      base
+                    , OpenTXLog
+                    , criterion
+  ghc-options:        -Wall -O2
+
