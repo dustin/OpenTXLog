@@ -1,11 +1,9 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE BangPatterns #-}
 module Main (main) where
 
-import Criterion
-import Criterion.Main
+import Criterion (bench, nfIO)
+import Criterion.Main (defaultMain)
 
-import OpenTXLog
+import OpenTXLog (processCSVFile)
 
 main :: IO ()
 main = defaultMain [
