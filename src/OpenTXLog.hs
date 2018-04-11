@@ -14,6 +14,7 @@ import Data.Time
 import Geodetics.Ellipsoids (Ellipsoid)
 import Geodetics.Geodetic (Geodetic(..), WGS84(..), readGroundPosition, groundDistance)
 import Numeric.Units.Dimensional.SIUnits
+import Text.Printf (printf)
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.List as L
 import qualified Data.Vector as V
@@ -78,9 +79,11 @@ process pt hdr vals =
                                             t' = pt $ head a
                                             s = speed t t' c c' in
                                           (prune pt a t,
-                                           r <> V.fromList [show (d D./~ meter), show s]))
+                                           r <> V.fromList [d2s (d D./~ meter), d2s s]))
                    (dropDup pf vals) vals in
     (hdr <> V.fromList ["distance", "speed"]) : vals'
+
+  where d2s = printf "%.6f"
 
 processCSVFile :: String -> IO [V.Vector String]
 processCSVFile file = do
