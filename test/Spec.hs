@@ -59,7 +59,7 @@ tests = [
   testCase "allow dups" testNoDupsNotuniq,
 
   goldenVsStringDiff "golden sample" (\ref new -> ["diff", "-u", ref, new])
-    "test/sample.out" (pfile "test/sample.csv")
+    "test/sample.out.csv" (pfile "test/sample.csv")
   ]
 
   where pfile file = encode <$> (processCSVFile file)
