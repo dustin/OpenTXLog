@@ -4,6 +4,6 @@ packages:
 - '.'
 extra-deps:
 - git: https://github.com/PaulJohnson/geodetics
-  commit: 3570904b8e525c53f53258d1883aae5ba65e4621
+  commit: f1ac3761ee2d039bf9162d0e30aa8d41e17d51fc
 - test-invariant-0.4.5.0
 resolver: lts-10.7
