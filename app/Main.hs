@@ -9,6 +9,6 @@ import qualified Data.ByteString.Lazy as BL
 
 main :: IO ()
 main = do
-  file <- (head <$> getArgs)
+  file <- head <$> getArgs
   stuff <- processCSVFile file
   (BL.putStr . encode) stuff

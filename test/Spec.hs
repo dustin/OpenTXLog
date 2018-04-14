@@ -38,7 +38,7 @@ prop_no_dups :: [Int] -> Bool
 prop_no_dups xs = nodups (dropDup id xs)
 
 prop_dup_group :: [Int] -> Bool
-prop_dup_group = dropDup id <=> (map head) . groupBy (on (==) id)
+prop_dup_group = dropDup id <=> map head . groupBy (on (==) id)
 
 tests :: [TestTree]
 tests = [
@@ -62,7 +62,7 @@ tests = [
     "test/sample.out.csv" (pfile "test/sample.csv")
   ]
 
-  where pfile file = encode <$> (processCSVFile file)
+  where pfile file = encode <$> processCSVFile file
 
 main :: IO ()
 main = defaultMain $ testGroup "All Tests" tests
