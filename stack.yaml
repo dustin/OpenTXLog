@@ -3,7 +3,6 @@ extra-package-dbs: []
 packages:
 - '.'
 extra-deps:
-- git: https://github.com/PaulJohnson/geodetics
-  commit: 89507d2e8b466813079f9b455cacc6595b48b322
+- geodetics-0.0.5
 - test-invariant-0.4.5.0
 resolver: lts-10.7
