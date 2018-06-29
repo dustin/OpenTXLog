@@ -77,16 +77,17 @@ process pt hdr vals =
       home = foldr (\x o -> if pf x == "" then o else rgp x) Nothing vals
       (_, vals') = L.mapAccumL (\a r -> let c = rgp r
                                             d = distance home c
-                                            c' = rgp $ head a
                                             t = pt r
-                                            t' = pt $ head a
-                                            s = speed t t' c c' in
+                                            s = spd rgp c t a in
                                           (prune pt a t,
                                            r <> V.fromList [d2s (d D./~ meter), d2s s]))
                    (dropDup pf vals) vals in
     (hdr <> V.fromList ["distance", "speed"]) : vals'
 
   where d2s = pack . printf "%.5f"
+        spd _ _ _ [] = 0 -- no relevant movement
+        spd rgp c t a = let c' = rgp $ head a
+                            t' = pt $ head a in speed t t' c c'
 
 processCSVFile :: String -> IO [V.Vector Text]
 processCSVFile file = do
