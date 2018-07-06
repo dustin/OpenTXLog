@@ -7,12 +7,17 @@ module OpenTXLog (
   , parseRowTS
   , byName
   , dropDup
+  -- transformations
+  , Transformer
+  , fieldTransformer
+  , intFieldTransformer
   ) where
 
 import Data.Csv (HasHeader(..), decode)
 import Data.Function (on)
 import Data.Semigroup ((<>))
 import Data.Time
+import Text.Read (readMaybe)
 import Data.Text (Text, unpack, pack)
 import Geodetics.Ellipsoids (Ellipsoid)
 import Geodetics.Geodetic (Geodetic(..), WGS84(..), readGroundPosition, groundDistance)
@@ -25,6 +30,21 @@ import qualified Numeric.Units.Dimensional as D
 
 type FieldLookup = Text -> V.Vector Text -> Text
 
+
+-- hdr -> input row -> output row
+type Transformer = V.Vector Text -> V.Vector Text -> V.Vector Text
+
+fieldTransformer :: Text -> (Text -> Text) -> Transformer
+fieldTransformer fname f hdr row =
+  case V.elemIndex fname hdr of
+    Nothing -> row
+    (Just pos) -> V.update row (V.fromList [(pos, f (row V.! pos))])
+
+intFieldTransformer :: Text -> (Int -> Int) -> Transformer
+intFieldTransformer fname f =
+  fieldTransformer fname (\it -> case (readMaybe . unpack) it of
+                                   Nothing -> it
+                                   (Just i) -> (pack.show.f) i)
 
 -- Parse a timestamp to a UTCTime given the timezone and a separate date and time string.
 parseTS :: TimeZone -> Text -> Text -> UTCTime
@@ -70,27 +90,28 @@ prune pt vals now =
 
 
 -- Add distance and speed columns to telemetry logs.
-process :: (V.Vector Text -> UTCTime) -> V.Vector Text -> [V.Vector Text] -> [V.Vector Text]
-process pt hdr vals =
+process :: (V.Vector Text -> UTCTime) -> V.Vector Text -> [Transformer] -> [V.Vector Text] -> [V.Vector Text]
+process pt hdr fs vals =
   let pf = byName hdr "GPS"
       rgp = readGroundPosition WGS84 . unpack . pf
-      home = foldr (\x o -> if pf x == "" then o else rgp x) Nothing vals
-      (_, vals') = L.mapAccumL (\a r -> let c = rgp r
-                                            d = distance home c
-                                            t = pt r
-                                            s = spd rgp c t a in
-                                          (prune pt a t,
-                                           r <> V.fromList [d2s (d D./~ meter), d2s s]))
-                   (dropDup pf vals) vals in
-    (hdr <> V.fromList ["distance", "speed"]) : vals'
+      vals' = map (\v -> foldr (\f o -> f hdr o) v fs) vals
+      home = foldr (\x o -> if pf x == "" then o else rgp x) Nothing vals'
+      (_, vals'') = L.mapAccumL (\a r -> let c = rgp r
+                                             d = distance home c
+                                             t = pt r
+                                             s = spd rgp c t a in
+                                           (prune pt a t,
+                                            r <> V.fromList [d2s (d D./~ meter), d2s s]))
+                   (dropDup pf vals') vals' in
+    (hdr <> V.fromList ["distance", "speed"]) : vals''
 
   where d2s = pack . printf "%.5f"
         spd _ _ _ [] = 0 -- no relevant movement
         spd rgp c t a = let c' = rgp $ head a
                             t' = pt $ head a in speed t t' c c'
 
-processCSVFile :: String -> IO [V.Vector Text]
-processCSVFile file = do
+processCSVFile :: String -> [Transformer] -> IO [V.Vector Text]
+processCSVFile file fs = do
   tz <- getCurrentTimeZone
   csvData <- BL.readFile file
   case decode NoHeader csvData :: Either String (V.Vector (V.Vector Text)) of
@@ -98,4 +119,4 @@ processCSVFile file = do
     Right v ->
       let hdr = V.head v
           body = V.toList $ V.tail v in
-        pure $ process (parseRowTS tz $ byName hdr) hdr body
+        pure $ process (parseRowTS tz $ byName hdr) hdr fs body

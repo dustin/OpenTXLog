@@ -1,4 +1,6 @@
 {-# OPTIONS_GHC -Wno-type-defaults #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedLists #-}
 
 import OpenTXLog
 
@@ -40,6 +42,22 @@ prop_no_dups xs = nodups (dropDup id xs)
 prop_dup_group :: [Int] -> Bool
 prop_dup_group = dropDup id <=> map head . groupBy (on (==) id)
 
+testFieldTransformer :: [TestTree]
+testFieldTransformer = map (\(t, (h,r,n,f), want) -> testCase t $ assertEqual t (fieldTransformer n f h r) want) [
+  ("empty", ([], [], "field", const "newval"), []),
+  ("nomatch", (["a", "b"], ["1", "2"], "x", const "newval"), ["1", "2"]),
+  ("first", (["a", "b"], ["1", "2"], "a", const "newval"), ["newval", "2"]),
+  ("second", (["a", "b"], ["1", "2"], "b", const "newval"), ["1", "newval"])
+  ]
+
+testIntFieldTransformer :: [TestTree]
+testIntFieldTransformer = map (\(t, (h,r,n,f), want) -> testCase t $ assertEqual t (intFieldTransformer n f h r) want) [
+  ("empty", ([], [], "field", const 0), []),
+  ("nomatch", (["a", "b"], ["1", "2"], "x", succ), ["1", "2"]),
+  ("first", (["a", "b"], ["1", "2"], "a", succ), ["2", "2"]),
+  ("second", (["a", "b"], ["1", "2"], "b", succ), ["1", "3"])
+  ]
+
 tests :: [TestTree]
 tests = [
   testProperty "drop dup drops dups" prop_no_dups,
@@ -54,6 +72,9 @@ tests = [
   testProperty "dedup idempotency (no dups)" (nodups &> prop_dedup_dedup),
   testProperty "dedup vs. groupBy (no dups)" (nodups &> prop_dup_group),
 
+  testGroup "field transformer" testFieldTransformer,
+  testGroup "int field transformer" testIntFieldTransformer,
+
   testCase "no dups" testNoDups,
   testCase "has dups" testHasDups,
   testCase "allow dups" testNoDupsNotuniq,
@@ -62,7 +83,7 @@ tests = [
     "test/sample.out.csv" (pfile "test/sample.csv")
   ]
 
-  where pfile file = encode <$> processCSVFile file
+  where pfile file = encode <$> processCSVFile file []
 
 main :: IO ()
 main = defaultMain $ testGroup "All Tests" tests
