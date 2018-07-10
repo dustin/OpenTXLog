@@ -8,12 +8,13 @@ module OpenTXLog (
   , byName
   , dropDup
   -- transformations
-  , Transformer
+  , RowTransformer
   , fieldTransformer
   , intFieldTransformer
   , r2dTransformer
   , Renamer
   , simpleRenamer
+  , Transformer(..)
   ) where
 
 import Data.Csv (HasHeader(..), decode)
@@ -21,7 +22,7 @@ import Data.Function (on)
 import Data.Semigroup ((<>))
 import Data.Time
 import Text.Read (readMaybe)
-import Data.Text (Text, unpack, pack)
+import Data.Text (Text, unpack, pack, replace)
 import Geodetics.Ellipsoids (Ellipsoid)
 import Geodetics.Geodetic (Geodetic(..), WGS84(..), readGroundPosition, groundDistance)
 import Numeric.Units.Dimensional.SIUnits
@@ -35,18 +36,20 @@ type FieldLookup = Text -> V.Vector Text -> Text
 
 
 -- hdr -> input row -> output row
-type Transformer = V.Vector Text -> V.Vector Text -> V.Vector Text
+type RowTransformer = V.Vector Text -> V.Vector Text -> V.Vector Text
 
 -- hdr -> hdr
 type Renamer = V.Vector Text -> V.Vector Text
 
-fieldTransformer :: Text -> (Text -> Text) -> Transformer
+data Transformer = Transformer ([V.Vector Text] -> RowTransformer) Renamer
+
+fieldTransformer :: Text -> (Text -> Text) -> RowTransformer
 fieldTransformer fname f hdr row =
   case V.elemIndex fname hdr of
     Nothing -> row
     (Just pos) -> V.update row (V.fromList [(pos, f (row V.! pos))])
 
-intFieldTransformer :: Text -> (Int -> Int) -> Transformer
+intFieldTransformer :: Text -> (Int -> Int) -> RowTransformer
 intFieldTransformer fname f =
   fieldTransformer fname (\it -> case (readMaybe . unpack) it of
                                    Nothing -> it
@@ -54,9 +57,12 @@ intFieldTransformer fname f =
 
 r2dTransformer :: Text -> Transformer
 r2dTransformer fname =
-  fieldTransformer fname (\it -> case (readMaybe . unpack) it of
-                                   Nothing -> it
-                                   (Just (i::Double)) -> (pack.show) (i * (180/pi)))
+  let fname' = replace "(rad)" "(deg)" fname in
+    Transformer
+    (const $ fieldTransformer fname (\it -> case (readMaybe . unpack) it of
+                                        Nothing -> it
+                                        (Just (i::Double)) -> (pack.show) (i * (180/pi))))
+    (simpleRenamer fname fname')
 
 simpleRenamer :: Text -> Text -> Renamer
 simpleRenamer f t = V.map (\h -> if h == f then t else h)
@@ -103,31 +109,37 @@ prune pt vals now =
   let dt r = diffUTCTime now (pt r) in
     L.dropWhile ((> minDur) . dt) vals
 
-
 -- Add distance and speed columns to telemetry logs.
-process :: (V.Vector Text -> UTCTime) -> V.Vector Text -> [Transformer] -> [Renamer] -> [V.Vector Text] -> [V.Vector Text]
-process pt hdr fs rn vals =
-  let pf = byName hdr "GPS"
-      rn' = rn <> [(`V.snoc` "distance"), (`V.snoc` "speed")]
-      rgp = readGroundPosition WGS84 . unpack . pf
+process :: (V.Vector Text -> UTCTime) -> V.Vector Text -> [Transformer] -> [V.Vector Text] -> [V.Vector Text]
+process pt hdr ts vals =
+  let ts' = ts <> [Transformer hdist (`V.snoc` "distance"), Transformer noop (`V.snoc` "speed")]
+      fs = map (\(Transformer f _) -> f vals) ts'
       vals' = map (\v -> foldr (\f o -> f hdr o) v fs) vals
-      home = foldr (\x o -> if pf x == "" then o else rgp x) Nothing vals'
       (_, vals'') = L.mapAccumL (\a r -> let c = rgp r
-                                             d = distance home c
                                              t = pt r
-                                             s = spd rgp c t a in
-                                           (prune pt a t,
-                                            r <> V.fromList [d2s (d D./~ meter), d2s s]))
+                                             s = spd c t a in
+                                           (prune pt a t, V.snoc r (d2s s)))
                    (dropDup pf vals') vals' in
-    (foldl (\o f -> f o) hdr rn') : vals''
+    (foldl (\o (Transformer _ f) -> f o) hdr ts') : vals''
 
   where d2s = pack . printf "%.5f"
-        spd _ _ _ [] = 0 -- no relevant movement
-        spd rgp c t a = let c' = rgp $ head a
-                            t' = pt $ head a in speed t t' c c'
+        spd _ _ [] = 0 -- no relevant movement
+        spd c t a = let c' = rgp $ head a
+                        t' = pt $ head a in speed t t' c c'
+        pf = byName hdr "GPS"
+        rgp = readGroundPosition WGS84 . unpack . pf
+        noop = const . flip const
 
-processCSVFile :: String -> [Transformer] -> [Renamer] -> IO [V.Vector Text]
-processCSVFile file fs rn = do
+        -- Home distance transformer
+        hdist :: [V.Vector Text] -> RowTransformer
+        hdist vs = let home = foldr (\x o -> if pf x == "" then o else rgp x) Nothing vs in
+                     \_ row ->
+                       let c = rgp row
+                           d = distance home c in
+                         V.snoc row $ d2s (d D./~ meter)
+
+processCSVFile :: String -> [Transformer] -> IO [V.Vector Text]
+processCSVFile file ts = do
   tz <- getCurrentTimeZone
   csvData <- BL.readFile file
   case decode NoHeader csvData :: Either String (V.Vector (V.Vector Text)) of
@@ -135,4 +147,4 @@ processCSVFile file fs rn = do
     Right v ->
       let hdr = V.head v
           body = V.toList $ V.tail v in
-        pure $ process (parseRowTS tz $ byName hdr) hdr fs rn body
+        pure $ process (parseRowTS tz $ byName hdr) hdr ts body
