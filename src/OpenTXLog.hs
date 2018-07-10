@@ -22,6 +22,7 @@ import Data.Csv (HasHeader(..), decode)
 import Data.Function (on)
 import Data.Semigroup ((<>))
 import Data.Time
+import Data.Maybe (maybe)
 import Text.Read (readMaybe)
 import Data.Text (Text, unpack, pack, replace)
 import Geodetics.Ellipsoids (Ellipsoid)
@@ -44,6 +45,9 @@ type Renamer = V.Vector Text -> V.Vector Text
 
 data Transformer = Transformer (V.Vector Text -> [V.Vector Text] -> RowTransformer) Renamer
 
+parseTransformer :: (Read a, Show a) => (a -> a) -> Text -> Text
+parseTransformer f t = maybe t (pack.show.f) ((readMaybe.unpack) t)
+
 fieldTransformer :: Text -> (Text -> Text) -> RowTransformer
 fieldTransformer fname f hdr row =
   case V.elemIndex fname hdr of
@@ -52,24 +56,20 @@ fieldTransformer fname f hdr row =
 
 intFieldTransformer :: Text -> (Int -> Int) -> RowTransformer
 intFieldTransformer fname f =
-  fieldTransformer fname (\it -> case (readMaybe . unpack) it of
-                                   Nothing -> it
-                                   (Just i) -> (pack.show.f) i)
+  fieldTransformer fname (parseTransformer f)
 
 r2dTransformer :: Text -> Transformer
 r2dTransformer fname =
   let fname' = replace "(rad)" "(deg)" fname in
     Transformer
-    (const.const $ fieldTransformer fname (\it -> case (readMaybe . unpack) it of
-                                              Nothing -> it
-                                              (Just (i::Double)) -> (pack.show) (i * (180/pi))))
+    (const.const $ fieldTransformer fname $ parseTransformer (\(i::Double) -> i * (180/pi)))
     (simpleRenamer fname fname')
 
 simpleRenamer :: Text -> Text -> Renamer
 simpleRenamer f t = V.map (\h -> if h == f then t else h)
 
 simpleTransformer :: RowTransformer -> Renamer -> Transformer
-simpleTransformer r n = Transformer (\_ _ -> r) n
+simpleTransformer r = Transformer (\_ _ -> r)
 
 -- Parse a timestamp to a UTCTime given the timezone and a separate date and time string.
 parseTS :: TimeZone -> Text -> Text -> UTCTime
