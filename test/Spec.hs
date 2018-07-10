@@ -83,7 +83,7 @@ tests = [
     "test/sample.out.csv" (pfile "test/sample.csv")
   ]
 
-  where pfile file = encode <$> processCSVFile file []
+  where pfile file = encode <$> processCSVFile file [] []
 
 main :: IO ()
 main = defaultMain $ testGroup "All Tests" tests

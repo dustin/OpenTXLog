@@ -12,6 +12,8 @@ module OpenTXLog (
   , fieldTransformer
   , intFieldTransformer
   , r2dTransformer
+  , Renamer
+  , simpleRenamer
   ) where
 
 import Data.Csv (HasHeader(..), decode)
@@ -35,6 +37,9 @@ type FieldLookup = Text -> V.Vector Text -> Text
 -- hdr -> input row -> output row
 type Transformer = V.Vector Text -> V.Vector Text -> V.Vector Text
 
+-- hdr -> hdr
+type Renamer = V.Vector Text -> V.Vector Text
+
 fieldTransformer :: Text -> (Text -> Text) -> Transformer
 fieldTransformer fname f hdr row =
   case V.elemIndex fname hdr of
@@ -52,6 +57,9 @@ r2dTransformer fname =
   fieldTransformer fname (\it -> case (readMaybe . unpack) it of
                                    Nothing -> it
                                    (Just (i::Double)) -> (pack.show) (i * (180/pi)))
+
+simpleRenamer :: Text -> Text -> Renamer
+simpleRenamer f t = V.map (\h -> if h == f then t else h)
 
 -- Parse a timestamp to a UTCTime given the timezone and a separate date and time string.
 parseTS :: TimeZone -> Text -> Text -> UTCTime
@@ -97,9 +105,10 @@ prune pt vals now =
 
 
 -- Add distance and speed columns to telemetry logs.
-process :: (V.Vector Text -> UTCTime) -> V.Vector Text -> [Transformer] -> [V.Vector Text] -> [V.Vector Text]
-process pt hdr fs vals =
+process :: (V.Vector Text -> UTCTime) -> V.Vector Text -> [Transformer] -> [Renamer] -> [V.Vector Text] -> [V.Vector Text]
+process pt hdr fs rn vals =
   let pf = byName hdr "GPS"
+      rn' = rn <> [(`V.snoc` "distance"), (`V.snoc` "speed")]
       rgp = readGroundPosition WGS84 . unpack . pf
       vals' = map (\v -> foldr (\f o -> f hdr o) v fs) vals
       home = foldr (\x o -> if pf x == "" then o else rgp x) Nothing vals'
@@ -110,15 +119,15 @@ process pt hdr fs vals =
                                            (prune pt a t,
                                             r <> V.fromList [d2s (d D./~ meter), d2s s]))
                    (dropDup pf vals') vals' in
-    (hdr <> V.fromList ["distance", "speed"]) : vals''
+    (foldl (\o f -> f o) hdr rn') : vals''
 
   where d2s = pack . printf "%.5f"
         spd _ _ _ [] = 0 -- no relevant movement
         spd rgp c t a = let c' = rgp $ head a
                             t' = pt $ head a in speed t t' c c'
 
-processCSVFile :: String -> [Transformer] -> IO [V.Vector Text]
-processCSVFile file fs = do
+processCSVFile :: String -> [Transformer] -> [Renamer] -> IO [V.Vector Text]
+processCSVFile file fs rn = do
   tz <- getCurrentTimeZone
   csvData <- BL.readFile file
   case decode NoHeader csvData :: Either String (V.Vector (V.Vector Text)) of
@@ -126,4 +135,4 @@ processCSVFile file fs = do
     Right v ->
       let hdr = V.head v
           body = V.toList $ V.tail v in
-        pure $ process (parseRowTS tz $ byName hdr) hdr fs body
+        pure $ process (parseRowTS tz $ byName hdr) hdr fs rn body

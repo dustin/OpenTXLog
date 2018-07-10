@@ -27,7 +27,6 @@ options = Options
 mkTransformers :: Options -> [Transformer]
 mkTransformers opts = map snd . filter fst $ [
   (optGroundAlt opts /= 0, intFieldTransformer "Alt(m)" (+ (optGroundAlt opts))),
-  -- TODO(dustin): Build mechanism to rename fields so these aren't confusing.
   (optR2D opts, r2dTransformer "Ptch(rad)"),
   (optR2D opts, r2dTransformer "Roll(rad)"),
   (optR2D opts, r2dTransformer "Yaw(rad)"),
@@ -41,9 +40,17 @@ mkTransformers opts = map snd . filter fst $ [
 
   where negTrans f = intFieldTransformer f negate
 
+mkRenamers :: Options -> [Renamer]
+mkRenamers opts = map snd . filter fst $ [
+  (optGroundAlt opts /= 0, simpleRenamer "Alt(m)" "GAlt(m)"),
+  (optR2D opts, simpleRenamer  "Ptch(rad)" "Ptch(deg)"),
+  (optR2D opts, simpleRenamer "Roll(rad)" "Roll(deg)"),
+  (optR2D opts, simpleRenamer "Yaw(rad)" "Yaw(deg)")
+  ]
+
 doFile :: Options -> IO ()
 doFile opts = do
-  stuff <- processCSVFile (optFilename opts) (mkTransformers opts)
+  stuff <- processCSVFile (optFilename opts) (mkTransformers opts) (mkRenamers opts)
   (BL.putStr . encode) stuff
 
 main :: IO ()
