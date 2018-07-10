@@ -13,8 +13,8 @@ import Options.Applicative (option, auto, long, showDefault, value, help, helper
                             (<**>), Parser)
 import Data.Semigroup ((<>))
 
-data Options = Options { _optGroundAlt :: Int
-                       , _filename :: String
+data Options = Options { optGroundAlt :: Int
+                       , optFilename :: String
   }
 
 options :: Parser Options
@@ -22,9 +22,14 @@ options = Options
   <$> option auto (long "groundAlt" <> showDefault <> value 0 <> help "altitude at takeoff")
   <*> argument str (metavar "FILE")
 
+mkTransformers :: Options -> [Transformer]
+mkTransformers opts = map snd . filter fst $ [
+  (optGroundAlt opts /= 0, intFieldTransformer "Alt(m)" (+ (optGroundAlt opts)))
+  ]
+
 doFile :: Options -> IO ()
-doFile (Options alt fn) = do
-  stuff <- processCSVFile fn [(intFieldTransformer "Alt(m)" (+ alt))]
+doFile opts = do
+  stuff <- processCSVFile (optFilename opts) (mkTransformers opts)
   (BL.putStr . encode) stuff
 
 main :: IO ()
