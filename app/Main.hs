@@ -9,23 +9,37 @@ import Data.Csv (encode)
 import qualified Data.ByteString.Lazy as BL
 
 import Options.Applicative (option, auto, long, showDefault, value, help, helper, fullDesc,
-                            progDesc, argument, metavar, execParser, info, str,
+                            progDesc, argument, metavar, execParser, info, str, switch,
                             (<**>), Parser)
 import Data.Semigroup ((<>))
 
 data Options = Options { optGroundAlt :: Int
+                       , optR2D :: Bool
                        , optFilename :: String
   }
 
 options :: Parser Options
 options = Options
   <$> option auto (long "groundAlt" <> showDefault <> value 0 <> help "altitude at takeoff")
+  <*> switch (long "r2d" <> showDefault <> help "convert radians to degrees")
   <*> argument str (metavar "FILE")
 
 mkTransformers :: Options -> [Transformer]
 mkTransformers opts = map snd . filter fst $ [
-  (optGroundAlt opts /= 0, intFieldTransformer "Alt(m)" (+ (optGroundAlt opts)))
+  (optGroundAlt opts /= 0, intFieldTransformer "Alt(m)" (+ (optGroundAlt opts))),
+  -- TODO(dustin): Build mechanism to rename fields so these aren't confusing.
+  (optR2D opts, r2dTransformer "Ptch(rad)"),
+  (optR2D opts, r2dTransformer "Roll(rad)"),
+  (optR2D opts, r2dTransformer "Yaw(rad)"),
+  -- Crossfire RSSIs are all logged inverted
+  (True, negTrans "1RSS(dB)"),
+  (True, negTrans "2RSS(dB)"),
+  (True, negTrans "RSNR(dB)"),
+  (True, negTrans "TRSS(dB)"),
+  (True, negTrans "TSNR(dB)")
   ]
+
+  where negTrans f = intFieldTransformer f negate
 
 doFile :: Options -> IO ()
 doFile opts = do

@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, ScopedTypeVariables #-}
 
 module OpenTXLog (
   FieldLookup
@@ -11,6 +11,7 @@ module OpenTXLog (
   , Transformer
   , fieldTransformer
   , intFieldTransformer
+  , r2dTransformer
   ) where
 
 import Data.Csv (HasHeader(..), decode)
@@ -45,6 +46,12 @@ intFieldTransformer fname f =
   fieldTransformer fname (\it -> case (readMaybe . unpack) it of
                                    Nothing -> it
                                    (Just i) -> (pack.show.f) i)
+
+r2dTransformer :: Text -> Transformer
+r2dTransformer fname =
+  fieldTransformer fname (\it -> case (readMaybe . unpack) it of
+                                   Nothing -> it
+                                   (Just (i::Double)) -> (pack.show) (i * (180/pi)))
 
 -- Parse a timestamp to a UTCTime given the timezone and a separate date and time string.
 parseTS :: TimeZone -> Text -> Text -> UTCTime
