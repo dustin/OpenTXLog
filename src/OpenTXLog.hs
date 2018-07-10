@@ -15,6 +15,7 @@ module OpenTXLog (
   , Renamer
   , simpleRenamer
   , Transformer(..)
+  , simpleTransformer
   ) where
 
 import Data.Csv (HasHeader(..), decode)
@@ -41,7 +42,7 @@ type RowTransformer = V.Vector Text -> V.Vector Text -> V.Vector Text
 -- hdr -> hdr
 type Renamer = V.Vector Text -> V.Vector Text
 
-data Transformer = Transformer ([V.Vector Text] -> RowTransformer) Renamer
+data Transformer = Transformer (V.Vector Text -> [V.Vector Text] -> RowTransformer) Renamer
 
 fieldTransformer :: Text -> (Text -> Text) -> RowTransformer
 fieldTransformer fname f hdr row =
@@ -59,13 +60,16 @@ r2dTransformer :: Text -> Transformer
 r2dTransformer fname =
   let fname' = replace "(rad)" "(deg)" fname in
     Transformer
-    (const $ fieldTransformer fname (\it -> case (readMaybe . unpack) it of
-                                        Nothing -> it
-                                        (Just (i::Double)) -> (pack.show) (i * (180/pi))))
+    (const.const $ fieldTransformer fname (\it -> case (readMaybe . unpack) it of
+                                              Nothing -> it
+                                              (Just (i::Double)) -> (pack.show) (i * (180/pi))))
     (simpleRenamer fname fname')
 
 simpleRenamer :: Text -> Text -> Renamer
 simpleRenamer f t = V.map (\h -> if h == f then t else h)
+
+simpleTransformer :: RowTransformer -> Renamer -> Transformer
+simpleTransformer r n = Transformer (\_ _ -> r) n
 
 -- Parse a timestamp to a UTCTime given the timezone and a separate date and time string.
 parseTS :: TimeZone -> Text -> Text -> UTCTime
@@ -109,11 +113,25 @@ prune pt vals now =
   let dt r = diffUTCTime now (pt r) in
     L.dropWhile ((> minDur) . dt) vals
 
+-- Transformer that adds home distance to the output.  This works by
+-- determining the home position as the earliest GPS reading in the
+-- input and then adding a column to every row with GPS describing the
+-- distance from that position.
+homeDistance :: V.Vector Text -> [V.Vector Text] -> Transformer
+homeDistance hdr rows = let pf = byName hdr "GPS"
+                            rgp = readGroundPosition WGS84 . unpack . pf
+                            home = foldr (\x o -> if pf x == "" then o else rgp x) Nothing rows in
+                          simpleTransformer (\_ row -> let c = rgp row
+                                                           d = distance home c in
+                                                         row `V.snoc` (pack.printf "%.5f") (d D./~ meter))
+                          (`V.snoc` "distance")
+
 -- Add distance and speed columns to telemetry logs.
 process :: (V.Vector Text -> UTCTime) -> V.Vector Text -> [Transformer] -> [V.Vector Text] -> [V.Vector Text]
 process pt hdr ts vals =
-  let ts' = ts <> [Transformer hdist (`V.snoc` "distance"), Transformer noop (`V.snoc` "speed")]
-      fs = map (\(Transformer f _) -> f vals) ts'
+  let ts' = ts <> [homeDistance hdr vals,
+                   simpleTransformer (flip const) (`V.snoc` "speed")]
+      fs = map (\(Transformer f _) -> f hdr vals) ts'
       vals' = map (\v -> foldr (\f o -> f hdr o) v fs) vals
       (_, vals'') = L.mapAccumL (\a r -> let c = rgp r
                                              t = pt r
@@ -128,15 +146,7 @@ process pt hdr ts vals =
                         t' = pt $ head a in speed t t' c c'
         pf = byName hdr "GPS"
         rgp = readGroundPosition WGS84 . unpack . pf
-        noop = const . flip const
 
-        -- Home distance transformer
-        hdist :: [V.Vector Text] -> RowTransformer
-        hdist vs = let home = foldr (\x o -> if pf x == "" then o else rgp x) Nothing vs in
-                     \_ row ->
-                       let c = rgp row
-                           d = distance home c in
-                         V.snoc row $ d2s (d D./~ meter)
 
 processCSVFile :: String -> [Transformer] -> IO [V.Vector Text]
 processCSVFile file ts = do

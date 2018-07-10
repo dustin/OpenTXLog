@@ -26,8 +26,8 @@ options = Options
 
 mkTransformers :: Options -> [Transformer]
 mkTransformers opts = map snd . filter fst $ [
-  (optGroundAlt opts /= 0, Transformer
-                           (const $ intFieldTransformer "Alt(m)" (+ (optGroundAlt opts)))
+  (optGroundAlt opts /= 0, simpleTransformer
+                           (intFieldTransformer "Alt(m)" (+ (optGroundAlt opts)))
                            (simpleRenamer "Alt(m)" "GAlt(m)")),
   (optR2D opts, r2dTransformer "Ptch(rad)"),
   (optR2D opts, r2dTransformer "Roll(rad)"),
@@ -40,7 +40,7 @@ mkTransformers opts = map snd . filter fst $ [
   (True, negTrans "TSNR(dB)")
   ]
 
-  where negTrans f = Transformer (const $ intFieldTransformer f negate) id
+  where negTrans f = simpleTransformer (intFieldTransformer f negate) id
 
 doFile :: Options -> IO ()
 doFile opts = do
