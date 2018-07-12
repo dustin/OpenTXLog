@@ -138,7 +138,7 @@ process pt hdr ts vals =
                                              s = spd c t a in
                                            (prune pt a t, V.snoc r (d2s s)))
                    (dropDup pf vals') vals' in
-    (foldl (\o (Transformer _ f) -> f o) hdr ts') : vals''
+    foldl (\o (Transformer _ f) -> f o) hdr ts' : vals''
 
   where d2s = pack . printf "%.5f"
         spd _ _ [] = 0 -- no relevant movement

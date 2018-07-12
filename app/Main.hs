@@ -27,7 +27,7 @@ options = Options
 mkTransformers :: Options -> [Transformer]
 mkTransformers opts = map snd . filter fst $ [
   (optGroundAlt opts /= 0, simpleTransformer
-                           (intFieldTransformer "Alt(m)" (+ (optGroundAlt opts)))
+                           (intFieldTransformer "Alt(m)" (+ optGroundAlt opts))
                            (simpleRenamer "Alt(m)" "GAlt(m)")),
   (optR2D opts, r2dTransformer "Ptch(rad)"),
   (optR2D opts, r2dTransformer "Roll(rad)"),
