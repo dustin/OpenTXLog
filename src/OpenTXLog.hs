@@ -134,8 +134,9 @@ prune pt vals now =
 -- distance from that position.
 homeDistance :: V.Vector Text -> [V.Vector Text] -> Transformer
 homeDistance hdr rows = let pf = byName hdr "GPS"
+                            sats = readMaybe . unpack . byName hdr "Sats" :: V.Vector Text -> Maybe Int
                             rgp = readGroundPosition WGS84 . unpack . pf
-                            home = foldr (\x o -> if pf x == "" then o else rgp x) Nothing rows in
+                            home = foldr (\x o -> if pf x == "" || maybe True (< 5) (sats x) then o else rgp x) Nothing rows in
                           simpleTransformer (\_ row -> let c = rgp row
                                                            d = distance home c in
                                                          row `V.snoc` (pack.printf "%.5f") (d D./~ meter))
