@@ -12,6 +12,7 @@ module OpenTXLog (
   , fieldTransformer
   , intFieldTransformer
   , r2dTransformer
+  , satFilter
   , Renamer
   , simpleRenamer
   , Transformer(..)
@@ -64,6 +65,20 @@ r2dTransformer fname =
     Transformer
     (const.const $ fieldTransformer fname $ parseTransformer (\(i::Double) -> i * (180/pi)))
     (simpleRenamer fname fname')
+
+satRowFilter :: Int -> RowTransformer
+satRowFilter minSats hdr row =
+  let sats = readMaybe . unpack . byName hdr "Sats"
+  in
+    case V.elemIndex "GPS" hdr of
+      Nothing -> row
+      (Just pos) -> case maybe True (< minSats) (sats row) of
+                      True -> V.update row (V.fromList [(pos, "")])
+                      _ -> row
+
+-- satFilter removes any GPS coordinates with too few satellites.
+satFilter :: Int -> Transformer
+satFilter n = simpleTransformer (satRowFilter n) id
 
 simpleRenamer :: Text -> Text -> Renamer
 simpleRenamer f t = V.map (\h -> if h == f then t else h)

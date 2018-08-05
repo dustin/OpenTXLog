@@ -16,6 +16,7 @@ import Data.Semigroup ((<>))
 data Options = Options { optGroundAlt :: Int
                        , optR2D :: Bool
                        , optFilename :: String
+                       , optMinSats :: Int
   }
 
 options :: Parser Options
@@ -23,9 +24,11 @@ options = Options
   <$> option auto (long "groundAlt" <> showDefault <> value 0 <> help "altitude at takeoff")
   <*> switch (long "r2d" <> showDefault <> help "convert radians to degrees")
   <*> argument str (metavar "FILE")
+  <*> option auto (long "minSats" <> showDefault <> value 5 <> help "minimum satellite to consider valid position")
 
 mkTransformers :: Options -> [Transformer]
 mkTransformers opts = map snd . filter fst $ [
+  (optMinSats opts /= 0, (satFilter . optMinSats) opts),
   (optGroundAlt opts /= 0, simpleTransformer
                            (intFieldTransformer "Alt(m)" (+ optGroundAlt opts))
                            (simpleRenamer "Alt(m)" "GAlt(m)")),
